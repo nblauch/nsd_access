@@ -22,9 +22,10 @@ class NSDAccess(object):
     Little class that provides easy access to the NSD data, see [http://naturalscenesdataset.org](their website)
     """
 
-    def __init__(self, nsd_folder, *args, **kwargs):
+    def __init__(self, nsd_folder, nsd_write_folder=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.nsd_folder = nsd_folder
+        self.nsd_write_folder = nsd_write_folder if nsd_write_folder is not None else nsd_folder # in case we don't have write access to the main nsd_folder loc, we can use this for certain new files
         self.nsddata_folder = op.join(self.nsd_folder, 'nsddata')
         self.ppdata_folder = op.join(self.nsd_folder, 'nsddata', 'ppdata')
         self.nsddata_betas_folder = op.join(
@@ -38,7 +39,7 @@ class NSDAccess(object):
             self.nsd_folder, 'nsddata', 'experiments', 'nsd', 'nsd_stim_info_merged.csv')
 
         self.coco_annotation_file = op.join(
-            self.nsd_folder, 'nsddata_stimuli', 'stimuli', 'nsd', 'annotations', '{}_{}.json')
+            self.nsd_write_folder, 'nsddata_stimuli', 'stimuli', 'nsd', 'annotations', '{}_{}.json')
 
     def download_coco_annotation_file(self, url='http://images.cocodataset.org/annotations/annotations_trainval2017.zip'):
         """download_coco_annotation_file downloads and extracts the relevant annotations files
