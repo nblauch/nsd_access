@@ -477,16 +477,20 @@ class NSDAccess(object):
             categories = json_normalize(coco.loadCats(cat_ids))
             
             coco_cats = []
+            coco_supercats = []
             for cat_id in cat_ids:
                 this_img_list = coco.getImgIds(catIds=[cat_id])
                 if coco_id in this_img_list:
                     this_cat = np.asarray(categories[categories['id']==cat_id]['name'])[0]
+                    this_supercat = np.asarray(categories[categories['id']==cat_id]['supercategory'])[0]
                     coco_cats.append(this_cat)
+                    coco_supercats.append(this_supercat)
 
         elif len(image_index) > 1:
 
             # we output a list of annots
             coco_cats = []
+            coco_supercats = []
 
             # load train_2017
             annot_file = self.coco_annotation_file.format(
@@ -506,18 +510,24 @@ class NSDAccess(object):
                 subj_info = self.stim_descriptions.iloc[image]
                 coco_id = subj_info['cocoId']
                 image_cat = []
+                image_supercat = []
                 if subj_info['cocoSplit'] == 'train2017':
                     for cat_id in cat_ids_train:
                         this_img_list = coco_train.getImgIds(catIds=[cat_id])
                         if coco_id in this_img_list:
                             this_cat = np.asarray(categories_train[categories_train['id']==cat_id]['name'])[0]
+                            this_supercat = np.asarray(categories_train[categories_train['id']==cat_id]['supercategory'])[0]
                             image_cat.append(this_cat)
+                            image_supercat.append(this_supercat)
                 
                 elif subj_info['cocoSplit'] == 'val2017':
                     for cat_id in cat_ids_val:
                         this_img_list = coco_val.getImgIds(catIds=[cat_id])
                         if coco_id in this_img_list:
                             this_cat = np.asarray(categories_val[categories_val['id']==cat_id]['name'])[0]
+                            this_supercat = np.asarray(categories_val[categories_val['id']==cat_id]['supercategory'])[0]
                             image_cat.append(this_cat)
+                            image_supercat.append(this_supercat)
                 coco_cats.append(image_cat)
-        return coco_cats
+                coco_supercats.append(image_supercat)
+        return coco_cats, coco_supercats
