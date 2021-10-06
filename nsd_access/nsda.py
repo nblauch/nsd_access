@@ -158,7 +158,7 @@ class NSDAccess(object):
 
         return out_data[..., trial_index]
 
-    def read_mapper_results(self, subject, mapper='prf', data_type='angle', data_format='fsaverage'):
+    def read_mapper_results(self, subject, mapper='prf', data_type='tval', data_format='func1pt8mm'):
         """read_mapper_results [summary]
 
         Parameters
@@ -170,7 +170,7 @@ class NSDAccess(object):
         data_type : str, optional
             second part of the mapper filename, by default 'angle'
         data_format : str, optional
-            what type of data format, from ['fsaverage', 'func1pt8mm', 'func1mm'], by default 'fsaverage'
+            what type of data format, from ['fsaverage', 'func1pt8mm', 'func1mm'], by default 'func1pt8mm'
 
         Returns
         -------
@@ -178,10 +178,13 @@ class NSDAccess(object):
             the requested mapper values
         """
         if data_format == 'fsaverage':
-            # unclear for now where the fsaverage mapper results would be
-            # as they are still in fsnative format now.
-            raise NotImplementedError(
-                'no mapper results in fsaverage present for now')
+            print("fsaverage files are in a nonstandard location, let's fix this soon")
+            out_data = np.concatenate((
+                nb.load(f'/lab_data/tarrlab/common/datasets/NSD_floc_fsaverage/{subject}/fsaverage/lh.{mapper}_{data_type}.mgz').get_data(),
+                nb.load(f'/lab_data/tarrlab/common/datasets/NSD_floc_fsaverage/{subject}/fsaverage/rh.{mapper}_{data_type}.mgz').get_data()
+            ), 0)
+            out_data[np.isnan(out_data)] = 0
+            return out_data.squeeze()
         else:  # is 'func1pt8mm' or 'func1mm'
             return self.read_vol_ppdata(subject=subject, filename=f'{mapper}_{data_type}', data_format=data_format)
 
