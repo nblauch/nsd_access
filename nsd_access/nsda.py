@@ -13,6 +13,7 @@ import matplotlib.image as mpimg
 import urllib.request
 import zipfile
 from pycocotools.coco import COCO
+from nsdcode import NSDmapdata
 
 from IPython import embed
 
@@ -234,12 +235,23 @@ class NSDAccess(object):
                               subject, 'label', f'{atlas}.mgz')
                 return np.squeeze(nb.load(ipf).get_data()), atlas_mapping
             else:  # more than one hemisphere requested
-                session_betas = []
+                hemi_atlases = []
                 for hemi in ['lh', 'rh']:
-                    hdata = nb.load(op.join(
-                        self.nsddata_folder, 'freesurfer', subject, 'label', f'{hemi}.{atlas}.mgz')).get_data()
-                    session_betas.append(hdata)
-                out_data = np.squeeze(np.vstack(session_betas))
+                    if data_format == 'fsaverage':
+                        fn = op.join(self.nsddata_folder, 'freesurfer', subject, 'label', f'{hemi}.{atlas}.fsaverage.mgz')
+                        if os.path.exists(fn):
+                            hdata = nb.load(fn)
+                        else:
+                            # do the mapping on the fly
+                            mapper_obj = NSDmapdata(self.nsd_folder)
+                            hdata = self.read_atlas_results(subject, atlas=atlas, data_format=f'{hemi}.nativesurf')
+                            hdata = mapper_obj.fit(int(subject[-1]), f'{hemi}.white', data_format, hdata)
+                            # nib.save(hdata, fn)
+                    else:
+                        hdata = nb.load(op.join(
+                            self.nsddata_folder, 'freesurfer', subject, 'label', f'{hemi}.{atlas}.mgz')).get_fdata()
+                    hemi_atlases.append(hdata)
+                out_data = np.squeeze(np.vstack(hemi_atlases))
                 return out_data, atlas_mapping
         else:  # is 'func1pt8mm', 'MNI', or 'func1mm'
             ipf = op.join(self.ppdata_folder, subject,
