@@ -207,7 +207,7 @@ class NSDAccess(object):
             for surface: takes both hemispheres by default, instead when prefixed by '.rh' or '.lh'.
             By default 'HCP_MMP1'.
         data_format : str, optional
-            what type of data format, from ['fsaverage', 'func1pt8mm', 'func1mm', 'MNI'], by default 'fsaverage'
+            what type of data format, from ['fsaverage', 'func1pt8mm', 'func1mm', 'MNI', 'nativesurf'], by default 'fsaverage'
 
         Returns
         -------
@@ -231,6 +231,7 @@ class NSDAccess(object):
         if data_format not in ('func1pt8mm', 'func1mm', 'MNI'):
             # if surface based results by exclusion
             if atlas[:3] in ('rh.', 'lh.'):  # check if hemisphere-specific atlas requested
+                assert data_format == 'nativesurf', 'nativesurf is the only surface format supported for hemisphere-specific atlases'
                 ipf = op.join(self.nsddata_folder, 'freesurfer',
                               subject, 'label', f'{atlas}.mgz')
                 return np.squeeze(nb.load(ipf).get_fdata()), atlas_mapping
@@ -238,15 +239,11 @@ class NSDAccess(object):
                 hemi_atlases = []
                 for hemi in ['lh', 'rh']:
                     if data_format == 'fsaverage':
-                        fn = op.join(self.nsddata_folder, 'freesurfer', subject, 'label', f'{hemi}.{atlas}.fsaverage.mgz')
-                        if os.path.exists(fn):
-                            hdata = nb.load(fn)
-                        else:
-                            # do the mapping on the fly
-                            mapper_obj = NSDmapdata(self.nsd_folder)
-                            hdata, _ = self.read_atlas_results(subject, atlas=atlas, data_format=f'{hemi}.nativesurf')
-                            hdata = mapper_obj.fit(int(subject[-1]), f'{hemi}.white', data_format, hdata)
-                            # nib.save(hdata, fn)
+                        mapper_obj = NSDmapdata(self.nsd_folder)
+                        hdata, _ = self.read_atlas_results(subject, atlas=f'{hemi}.{atlas}', data_format='nativesurf')
+                        hdata = mapper_obj.fit(int(subject[-1]), 
+                                                f'{hemi}.white', 
+                                                data_format, hdata)
                     else:
                         hdata = nb.load(op.join(
                             self.nsddata_folder, 'freesurfer', subject, 'label', f'{hemi}.{atlas}.mgz')).get_fdata()
