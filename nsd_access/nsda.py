@@ -4,7 +4,7 @@ import glob
 import nibabel as nb
 import numpy as np
 import pandas as pd
-from pandas.io.json import json_normalize
+from pandas import json_normalize
 from tqdm import tqdm
 import h5py
 import matplotlib.pyplot as plt
@@ -13,6 +13,7 @@ import matplotlib.image as mpimg
 import urllib.request
 import zipfile
 from pycocotools.coco import COCO
+from nsdcode import NSDmapdata
 
 from IPython import embed
 
@@ -100,7 +101,7 @@ class NSDAccess(object):
         full_path = full_path.format(subject=subject,
                                      data_format=data_format,
                                      filename=filename)
-        return nb.load(full_path).get_data()
+        return nb.load(full_path).get_fdata()
 
     def read_betas(self, subject, session_index, trial_index=[], data_type='betas_fithrf_GLMdenoise_RR', data_format='fsaverage', mask=None):
         """read_betas read betas from MRI files
@@ -147,13 +148,13 @@ class NSDAccess(object):
             session_betas = []
             for hemi in ['lh', 'rh']:
                 hdata = nb.load(op.join(
-                    data_folder, f'{hemi}.betas_session{si_str}.mgh')).get_data()
+                    data_folder, f'{hemi}.betas_session{si_str}.mgh')).get_fdata()
                 session_betas.append(hdata)
             out_data = np.squeeze(np.vstack(session_betas))
         else:
             # if no mask was specified, we'll use the nifti image
             out_data = nb.load(
-                op.join(data_folder, f'betas_session{si_str}.nii.gz')).get_data()
+                op.join(data_folder, f'betas_session{si_str}.nii.gz')).get_fdata()
 
         if len(trial_index) == 0:
             trial_index = slice(0, out_data.shape[-1])
@@ -183,8 +184,8 @@ class NSDAccess(object):
             try:
                 # use pre-mapped results
                 out_data = np.concatenate((
-                    nb.load(f'/lab_data/tarrlab/common/datasets/NSD_floc_fsaverage/{subject}/fsaverage/lh.{mapper}_{data_type}.mgz').get_data(),
-                    nb.load(f'/lab_data/tarrlab/common/datasets/NSD_floc_fsaverage/{subject}/fsaverage/rh.{mapper}_{data_type}.mgz').get_data()
+                    nb.load(f'{self.nsd_folder}/../NSD_floc_fsaverage/{subject}/fsaverage/lh.{mapper}_{data_type}.mgz').get_fdata(),
+                    nb.load(f'{self.nsd_folder}/../NSD_floc_fsaverage/{subject}/fsaverage/rh.{mapper}_{data_type}.mgz').get_fdata()
                 ), 0)
             except:
                 # do the mapping on the fly
@@ -224,7 +225,7 @@ class NSDAccess(object):
             for surface: takes both hemispheres by default, instead when prefixed by '.rh' or '.lh'.
             By default 'HCP_MMP1'.
         data_format : str, optional
-            what type of data format, from ['fsaverage', 'func1pt8mm', 'func1mm', 'MNI'], by default 'fsaverage'
+            what type of data format, from ['fsaverage', 'func1pt8mm', 'func1mm', 'MNI', 'nativesurf'], by default 'fsaverage'
 
         Returns
         -------
@@ -239,8 +240,9 @@ class NSDAccess(object):
         if atlas[:3] in ('rh.', 'lh.'):
             atlas_name = atlas[3:]
 
-        mapp_df = pd.read_csv(os.path.join(self.nsddata_folder, 'freesurfer', 'fsaverage',
-                                           'label', f'{atlas_name}.mgz.ctab'), delimiter=' ', header=None, index_col=0)
+        mapp_df = pd.read_csv(os.path.join(self.nsddata_folder, 'freesurfer',  subject,
+                            'label', f'{atlas_name}.mgz.ctab'), delimiter=' ', header=None, index_col=0)
+
         atlas_mapping = mapp_df.to_dict()[1]
         # dict((y,x) for x,y in atlas_mapping.iteritems())
         atlas_mapping = {y: x for x, y in atlas_mapping.items()}
@@ -248,21 +250,29 @@ class NSDAccess(object):
         if data_format not in ('func1pt8mm', 'func1mm', 'MNI'):
             # if surface based results by exclusion
             if atlas[:3] in ('rh.', 'lh.'):  # check if hemisphere-specific atlas requested
+                assert data_format == 'nativesurf', 'nativesurf is the only surface format supported for hemisphere-specific atlases'
                 ipf = op.join(self.nsddata_folder, 'freesurfer',
                               subject, 'label', f'{atlas}.mgz')
-                return np.squeeze(nb.load(ipf).get_data()), atlas_mapping
+                return np.squeeze(nb.load(ipf).get_fdata()), atlas_mapping
             else:  # more than one hemisphere requested
-                session_betas = []
+                hemi_atlases = []
                 for hemi in ['lh', 'rh']:
-                    hdata = nb.load(op.join(
-                        self.nsddata_folder, 'freesurfer', subject, 'label', f'{hemi}.{atlas}.mgz')).get_data()
-                    session_betas.append(hdata)
-                out_data = np.squeeze(np.vstack(session_betas))
+                    if data_format == 'fsaverage':
+                        mapper_obj = NSDmapdata(self.nsd_folder)
+                        hdata, _ = self.read_atlas_results(subject, atlas=f'{hemi}.{atlas}', data_format='nativesurf')
+                        hdata = mapper_obj.fit(int(subject[-1]), 
+                                                f'{hemi}.white', 
+                                                data_format, hdata)
+                    else:
+                        hdata = nb.load(op.join(
+                            self.nsddata_folder, 'freesurfer', subject, 'label', f'{hemi}.{atlas}.mgz')).get_fdata()
+                    hemi_atlases.append(hdata)
+                out_data = np.squeeze(np.vstack(hemi_atlases))
                 return out_data, atlas_mapping
         else:  # is 'func1pt8mm', 'MNI', or 'func1mm'
             ipf = op.join(self.ppdata_folder, subject,
                           data_format, 'roi', f'{atlas}.nii.gz')
-            return nb.load(ipf).get_data(), atlas_mapping
+            return nb.load(ipf).get_fdata(), atlas_mapping
 
     def list_atlases(self, subject, data_format='fsaverage', abs_paths=False):
         """list_atlases [summary]
