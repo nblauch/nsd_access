@@ -179,10 +179,9 @@ class NSDAccess(object):
             the requested mapper values
         """
         if data_format == 'fsaverage':
-            print("fsaverage files are in a nonstandard location, let's fix this soon")
             out_data = np.concatenate((
-                nb.load(f'/lab_data/tarrlab/common/datasets/NSD_floc_fsaverage/{subject}/fsaverage/lh.{mapper}_{data_type}.mgz').get_fdata(),
-                nb.load(f'/lab_data/tarrlab/common/datasets/NSD_floc_fsaverage/{subject}/fsaverage/rh.{mapper}_{data_type}.mgz').get_fdata()
+                nb.load(f'{self.nsd_folder}/../NSD_floc_fsaverage/{subject}/fsaverage/lh.{mapper}_{data_type}.mgz').get_fdata(),
+                nb.load(f'{self.nsd_folder}/../NSD_floc_fsaverage/{subject}/fsaverage/rh.{mapper}_{data_type}.mgz').get_fdata()
             ), 0)
             out_data[np.isnan(out_data)] = 0
             return out_data.squeeze()
