@@ -17,6 +17,8 @@ from nsdcode import NSDmapdata
 
 from IPython import embed
 
+from nsdcode import NSDmapdata
+
 
 class NSDAccess(object):
     """
@@ -177,14 +179,31 @@ class NSDAccess(object):
         -------
         numpy.ndarray, 2D (fsaverage) or 4D (other data formats)
             the requested mapper values
-        """
+        """            
         if data_format == 'fsaverage':
-            out_data = np.concatenate((
-                nb.load(f'{self.nsd_folder}/../NSD_floc_fsaverage/{subject}/fsaverage/lh.{mapper}_{data_type}.mgz').get_fdata(),
-                nb.load(f'{self.nsd_folder}/../NSD_floc_fsaverage/{subject}/fsaverage/rh.{mapper}_{data_type}.mgz').get_fdata()
-            ), 0)
+            try:
+                # use pre-mapped results
+                out_data = np.concatenate((
+                    nb.load(f'{self.nsd_folder}/../NSD_floc_fsaverage/{subject}/fsaverage/lh.{mapper}_{data_type}.mgz').get_fdata(),
+                    nb.load(f'{self.nsd_folder}/../NSD_floc_fsaverage/{subject}/fsaverage/rh.{mapper}_{data_type}.mgz').get_fdata()
+                ), 0)
+            except:
+                # do the mapping on the fly
+                mapper_obj = NSDmapdata(self.nsd_folder)
+                native_data = self.read_mapper_results(subject, mapper=mapper, data_type=data_type, data_format='nativesurf')
+                out_data = []
+                for ii, hemi in enumerate(['lh', 'rh']):
+                    hemi_fsaverage = mapper_obj.fit(int(subject[-1]), f'{hemi}.white', 'fsaverage', native_data[ii])
+                    out_data.append(hemi_fsaverage)
+                out_data = np.concatenate(out_data, 0)
             out_data[np.isnan(out_data)] = 0
             return out_data.squeeze()
+        elif data_format == 'nativesurf':
+            out_data = (
+                nb.load(f'/lab_data/tarrlab/common/datasets/NSD/nsddata/freesurfer/{subject}/label/lh.{mapper}{data_type}.mgz').get_data(),
+                nb.load(f'/lab_data/tarrlab/common/datasets/NSD/nsddata/freesurfer/{subject}/label/rh.{mapper}{data_type}.mgz').get_data()
+            )
+            return out_data
         else:  # is 'func1pt8mm' or 'func1mm'
             return self.read_vol_ppdata(subject=subject, filename=f'{mapper}_{data_type}', data_format=data_format)
 
